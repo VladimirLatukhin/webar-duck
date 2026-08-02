@@ -1,8 +1,5 @@
-"""B&W postcard for MindAR: asymmetric unique art, 4 different corners, QR same side.
-No repetitive grid / checkerboard. Duck-only center scene.
-"""
+"""First postcard layout in high-contrast B&W (mono-printer friendly)."""
 from pathlib import Path
-import math
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -17,102 +14,79 @@ CX = W // 2
 img = Image.new("RGB", (W, H), WHITE)
 draw = ImageDraw.Draw(img)
 
-# Simple outer frame (not checkerboard)
-margin = 48
-draw.rectangle([margin, margin, W - margin - 1, H - margin - 1], outline=BLACK, width=8)
-draw.rectangle([margin + 16, margin + 16, W - margin - 17, H - margin - 17], outline=BLACK, width=3)
+# Original vibe: horizontal color bands → now B&W stripes (80px)
+band = 80
+for i, y0 in enumerate(range(0, H, band)):
+    if i % 2 == 0:
+        draw.rectangle([0, y0, W, min(y0 + band - 1, H - 1)], fill=BLACK)
+
+# Inner card — leave a thicker striped frame on all sides (like v1)
+margin = 80
+draw.rounded_rectangle(
+    [margin, margin, W - margin, H - margin],
+    radius=48,
+    fill=WHITE,
+    outline=BLACK,
+    width=8,
+)
+
+# Four DIFFERENT filled ellipses — unique gray levels + sizes/shapes (no diagonal twins).
+# Grayscale intensity matters for MindAR; pure mono pairs confuse matching.
+ovals = [
+    # TL — dark gray wide oval
+    (240, 310, 100, 75, 40),
+    # TR — medium gray tall oval
+    (960, 320, 65, 95, 110),
+    # BL — light gray round-ish
+    (250, 1170, 88, 88, 180),
+    # BR — near-black flat oval
+    (940, 1140, 110, 60, 20),
+    # Extra asymmetric accent near duck (not a twin of any corner)
+    (500, 620, 55, 40, 90),
+]
+for cx, cy, rx, ry, gray in ovals:
+    box = [cx - rx, cy - ry, cx + rx, cy + ry]
+    g = max(0, min(255, int(gray)))
+    draw.ellipse(box, fill=(g, g, g), outline=BLACK, width=4)
 
 try:
-    font_lg = ImageFont.truetype("arialbd.ttf", 68)
-    font_md = ImageFont.truetype("arial.ttf", 30)
-    font_sm = ImageFont.truetype("arial.ttf", 24)
+    font_lg = ImageFont.truetype("arialbd.ttf", 72)
+    font_md = ImageFont.truetype("arial.ttf", 36)
+    font_sm = ImageFont.truetype("arial.ttf", 28)
 except OSError:
     try:
-        font_lg = ImageFont.truetype("arial.ttf", 68)
-        font_md = ImageFont.truetype("arial.ttf", 30)
-        font_sm = ImageFont.truetype("arial.ttf", 24)
+        font_lg = ImageFont.truetype("arial.ttf", 72)
+        font_md = ImageFont.truetype("arial.ttf", 36)
+        font_sm = ImageFont.truetype("arial.ttf", 28)
     except OSError:
         font_lg = font_md = font_sm = ImageFont.load_default()
 
-# Title
-draw.text((CX, 130), "QUACK AR", fill=BLACK, font=font_lg, anchor="mm")
-draw.text((CX, 190), "Point camera at this card", fill=BLACK, font=font_md, anchor="mm")
+draw.text((CX, 260), "QUACK AR", fill=BLACK, font=font_lg, anchor="mm")
+draw.text((CX, 340), "Point your camera here", fill=BLACK, font=font_md, anchor="mm")
 
-# --- Four DIFFERENT corner markers ---
-def mark_tl(x, y):
-    for s in (70, 48, 28):
-        draw.arc([x - s, y - s, x + s, y + s], 180, 270, fill=BLACK, width=6)
-    draw.line([(x - 70, y), (x - 20, y)], fill=BLACK, width=6)
-    draw.line([(x, y - 70), (x, y - 20)], fill=BLACK, width=6)
+# Duck (v1 composition)
+duck_y = 700
+draw.ellipse([460, duck_y, 760, duck_y + 190], fill=WHITE, outline=BLACK, width=7)
+draw.ellipse([650, duck_y - 55, 820, duck_y + 105], fill=WHITE, outline=BLACK, width=7)
+draw.polygon([(820, duck_y + 15), (930, duck_y + 45), (820, duck_y + 75)], fill=BLACK)
+draw.ellipse([730, duck_y - 20, 760, duck_y + 10], fill=BLACK)
+draw.arc([500, duck_y + 30, 700, duck_y + 160], 200, 340, fill=BLACK, width=5)
 
-
-def mark_tr(x, y):
-    r_out, r_in = 55, 24
-    pts = []
-    for i in range(10):
-        ang = -math.pi / 2 + i * math.pi / 5
-        r = r_out if i % 2 == 0 else r_in
-        pts.append((x + r * math.cos(ang), y + r * math.sin(ang)))
-    draw.polygon(pts, outline=BLACK, fill=WHITE)
-    draw.line(pts + [pts[0]], fill=BLACK, width=4)
-
-
-def mark_bl(x, y):
-    draw.polygon([(x - 55, y + 50), (x + 55, y + 50), (x, y - 55)], outline=BLACK, fill=WHITE)
-    draw.line([(x - 55, y + 50), (x + 55, y + 50), (x, y - 55), (x - 55, y + 50)], fill=BLACK, width=5)
-    draw.rectangle([x - 50, y + 58, x + 50, y + 72], fill=BLACK)
-
-
-def mark_br(x, y):
-    for r in (58, 40, 24):
-        draw.arc([x - r, y - r, x + r, y + r], 40, 320, fill=BLACK, width=5)
-    draw.rectangle([x - 14, y - 14, x + 14, y + 14], outline=BLACK, width=4)
-    draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill=BLACK)
-
-
-# Tuned further inward so arcs/triangle clear the double frame
-mark_tl(165, 165)
-mark_tr(W - 130, 130)
-mark_bl(175, H - 175)
-mark_br(W - 130, H - 145)
-
-# --- Large centered duck only ---
-ox, oy = CX - 30, 680
-s = 1.85
-
-def sx(v):
-    return ox + v * s
-
-def sy(v):
-    return oy + v * s
-
-draw.ellipse([sx(-120), sy(-35), sx(80), sy(95)], fill=WHITE, outline=BLACK, width=8)
-draw.ellipse([sx(35), sy(-90), sx(155), sy(20)], fill=WHITE, outline=BLACK, width=8)
-draw.polygon(
-    [(sx(155), sy(-40)), (sx(235), sy(-18)), (sx(155), sy(0))],
-    fill=BLACK,
-)
-draw.ellipse([sx(95), sy(-55), sx(115), sy(-35)], fill=BLACK)
-draw.arc([sx(-85), sy(-5), sx(40), sy(85)], 200, 340, fill=BLACK, width=7)
-
-# --- QR block ---
-qr_size = 240
-caption_y = 1180
-qr_top = 1220
-qr_left = CX - qr_size // 2
-
-draw.text((CX, caption_y), "Scan QR to open AR", fill=BLACK, font=font_sm, anchor="mm")
-draw.rectangle(
-    [qr_left - 10, qr_top - 10, qr_left + qr_size + 10, qr_top + qr_size + 10],
-    outline=BLACK, width=4,
+draw.text((CX, H - 450), "Scan QR to open AR", fill=BLACK, font=font_sm, anchor="mm")
+draw.rounded_rectangle(
+    [CX - 160, H - 420, CX + 160, H - 100],
+    radius=16,
+    fill=WHITE,
+    outline=BLACK,
+    width=5,
 )
 
 if QR_PATH.exists():
-    qr = Image.open(QR_PATH).convert("L").resize((qr_size, qr_size))
+    qr = Image.open(QR_PATH).convert("L").resize((300, 300))
     qr = qr.point(lambda p: 0 if p < 128 else 255).convert("RGB")
-    img.paste(qr, (qr_left, qr_top))
+    img.paste(qr, (CX - 150, H - 410))
 else:
-    draw.text((CX, qr_top + qr_size // 2), "QR HERE", fill=BLACK, font=font_md, anchor="mm")
+    draw.text((CX, H - 260), "QR HERE", fill=BLACK, font=font_md, anchor="mm")
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 img.save(OUT, "PNG", optimize=True)
