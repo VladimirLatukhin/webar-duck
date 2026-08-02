@@ -15,6 +15,60 @@
           if (r) r.setClearColor(0x000000, 0);
         },
       });
+
+      /*
+        Extra pose smoothing: MindAR still drives #anchor (may jitter).
+        #duckRoot is NOT a child of the anchor — it lerps toward the anchor's
+        world pose each frame so the duck feels heavier / more stable.
+        factor: smaller = smoother but laggier (0.04–0.08 is a good range).
+      */
+      AFRAME.registerComponent("smooth-follow", {
+        schema: {
+          target: { type: "selector" },
+          factor: { type: "number", default: 0.05 },
+        },
+        init: function () {
+          this.pos = new THREE.Vector3();
+          this.quat = new THREE.Quaternion();
+          this.scale = new THREE.Vector3(1, 1, 1);
+          this.tmpPos = new THREE.Vector3();
+          this.tmpQuat = new THREE.Quaternion();
+          this.tmpScale = new THREE.Vector3();
+          this.ready = false;
+          this.el.object3D.visible = false;
+        },
+        tick: function (_t, dt) {
+          const target = this.data.target;
+          if (!target || !target.object3D.visible) {
+            this.el.object3D.visible = false;
+            this.ready = false;
+            return;
+          }
+
+          target.object3D.updateMatrixWorld(true);
+          target.object3D.matrixWorld.decompose(this.tmpPos, this.tmpQuat, this.tmpScale);
+
+          // Frame-rate independent smoothing (~same feel at 30/60 fps)
+          const fpsFactor = Math.min(1, ((dt || 16.7) / 16.7) * this.data.factor);
+
+          if (!this.ready) {
+            this.pos.copy(this.tmpPos);
+            this.quat.copy(this.tmpQuat);
+            this.scale.copy(this.tmpScale);
+            this.ready = true;
+          } else {
+            this.pos.lerp(this.tmpPos, fpsFactor);
+            this.quat.slerp(this.tmpQuat, fpsFactor);
+            this.scale.lerp(this.tmpScale, fpsFactor);
+          }
+
+          const o = this.el.object3D;
+          o.position.copy(this.pos);
+          o.quaternion.copy(this.quat);
+          o.scale.copy(this.scale);
+          o.visible = true;
+        },
+      });
     </script>
     <style>
       html, body {
@@ -98,7 +152,7 @@
       <a-scene
         id="scene"
         transparent-canvas
-        mindar-image="imageTargetSrc: ./assets/targets.mind; uiLoading: no; uiScanning: no; uiError: yes; filterMinCF: 0.00001; filterBeta: 0.001; missTolerance: 10; warmupTolerance: 5"
+        mindar-image="imageTargetSrc: ./assets/targets.mind; uiLoading: no; uiScanning: no; uiError: yes; filterMinCF: 0.000001; filterBeta: 0.0005; missTolerance: 15; warmupTolerance: 8"
         embedded
         color-space="sRGB"
         renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true, antialias: true"
@@ -116,7 +170,10 @@
         <a-light type="ambient" color="#ffffff" intensity="1.6"></a-light>
         <a-light type="directional" intensity="1.2" position="0 1 2"></a-light>
 
-        <a-entity id="anchor" mindar-image-target="targetIndex: 0">
+        <a-entity id="anchor" mindar-image-target="targetIndex: 0"></a-entity>
+
+        <!-- Smoothed visual root (follows #anchor with lerp) -->
+        <a-entity id="duckRoot" smooth-follow="target: #anchor; factor: 0.045">
           <a-entity
             id="duckSpin"
             position="0 0 0.2"
