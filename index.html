@@ -2,61 +2,40 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>Quack AR — rotating duck</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <title>Quack AR</title>
+    <!-- Match MindAR official example stack (A-Frame 1.4.1) -->
+    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <style>
+      /*
+        Official MindAR pattern:
+        - full-size .ar-container
+        - <a-scene embedded> inside it
+        - MindAR appends <video style="z-index:-2"> as sibling of a-scene
+        - WebGL canvas must be transparent so camera shows through
+        Do NOT restyle the camera <video> (breaks compositing).
+      */
       html, body {
         margin: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
-        /* Must NOT be opaque black — camera <video> sits behind the canvas */
-        background: transparent;
-      }
-      a-scene {
-        display: block;
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-      }
-      /* Transparent WebGL so camera feed shows through */
-      .a-canvas, canvas.a-canvas, a-scene canvas {
-        background: transparent !important;
-        display: block !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-      /*
-        MindAR injects <video> for the camera.
-        Keep it visible under the transparent canvas — never z-index < 0
-        (that hides it behind the page background).
-      */
-      video {
-        display: block !important;
-        position: absolute !important;
-        inset: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        z-index: 0 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
         background: #000;
       }
-      a-scene > .a-canvas,
-      a-scene canvas {
-        position: absolute !important;
-        inset: 0 !important;
-        z-index: 1 !important;
+      .ar-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
       }
       #start {
         position: fixed;
         inset: 0;
-        z-index: 30;
+        z-index: 40;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -86,7 +65,7 @@
         left: 0;
         right: 0;
         bottom: 1rem;
-        z-index: 20;
+        z-index: 30;
         text-align: center;
         color: #fff;
         font-family: system-ui, sans-serif;
@@ -94,7 +73,6 @@
         text-shadow: 0 1px 4px #000;
         pointer-events: none;
         opacity: 0;
-        transition: opacity 0.3s;
       }
       #hint.show { opacity: 1; }
       .hidden { display: none !important; }
@@ -108,47 +86,59 @@
     </div>
     <div id="hint">Ищем открытку…</div>
 
-    <a-scene
-      id="scene"
-      mindar-image="imageTargetSrc: ./assets/targets.mind; filterMinCF: 0.0001; filterBeta: 0.001; uiLoading: no; uiScanning: no; uiError: yes"
-      color-space="sRGB"
-      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      loading-screen="enabled: false"
-      background="transparent: true; color: #00000000"
-    >
-      <a-assets>
-        <a-asset-item id="duckModel" src="./assets/duck.glb"></a-asset-item>
-        <audio id="track" src="./assets/duck-quack.mp3" preload="auto" loop playsinline></audio>
-      </a-assets>
+    <div class="ar-container" id="arContainer">
+      <a-scene
+        id="scene"
+        mindar-image="imageTargetSrc: ./assets/targets.mind; uiLoading: no; uiScanning: no; uiError: yes"
+        embedded
+        color-space="sRGB"
+        renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
+        loading-screen="enabled: false"
+      >
+        <a-assets>
+          <a-asset-item id="duckModel" src="./assets/duck.glb"></a-asset-item>
+          <audio id="track" src="./assets/duck-quack.mp3" preload="auto" loop></audio>
+        </a-assets>
 
-      <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
-      <a-light type="directional" color="#ffffff" intensity="1.1" position="1 2 1"></a-light>
-      <a-light type="directional" color="#ffe6c0" intensity="0.55" position="-1 1 -0.5"></a-light>
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-light type="ambient" color="#ffffff" intensity="1.6"></a-light>
+        <a-light type="directional" intensity="1.2" position="0 1 2"></a-light>
 
-      <!--
-        MindAR target: XY = postcard plane, Z toward camera.
-        Khronos Duck is Y-up in glTF → rotate +90° around X so it stands on the postcard.
-        Spin around local "up" after that (world Z / postcard normal) via wrapper.
-      -->
-      <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-        <a-entity
-          id="duckSpin"
-          position="0 0 0.12"
-          animation="property: rotation; to: 0 0 360; loop: true; dur: 6000; easing: linear"
-        >
-          <a-gltf-model
-            id="duck"
-            src="#duckModel"
-            rotation="90 0 0"
-            scale="0.5 0.5 0.5"
-          ></a-gltf-model>
+        <a-entity id="anchor" mindar-image-target="targetIndex: 0">
+          <!-- Bright marker so we know the anchor is visible even if GLB fails -->
+          <a-box
+            id="debugBox"
+            position="0 0 0.05"
+            width="0.2"
+            height="0.2"
+            depth="0.2"
+            color="#ffb703"
+            opacity="0.85"
+          ></a-box>
+
+          <!--
+            Postcard plane = XY, Z toward camera.
+            Khronos Duck is Y-up → rotate X so it stands "out" of the card.
+            Spin around postcard normal (Z).
+          -->
+          <a-entity
+            id="duckSpin"
+            position="0 0 0.2"
+            animation="property: rotation; to: 0 0 360; loop: true; dur: 7000; easing: linear"
+          >
+            <a-gltf-model
+              id="duck"
+              src="#duckModel"
+              scale="0.4 0.4 0.4"
+              rotation="90 0 0"
+            ></a-gltf-model>
+          </a-entity>
         </a-entity>
-      </a-entity>
-    </a-scene>
+      </a-scene>
+    </div>
 
     <script>
       const startEl = document.getElementById("start");
@@ -160,42 +150,21 @@
 
       let audioReady = false;
 
-      function ensureCameraVisible() {
-        // MindAR may append video to body or scene — keep it under transparent canvas
-        document.querySelectorAll("video").forEach((v) => {
-          v.style.zIndex = "0";
-          v.style.opacity = "1";
-          v.style.visibility = "visible";
-          v.style.objectFit = "cover";
-          v.setAttribute("playsinline", "");
-          v.setAttribute("webkit-playsinline", "");
-          v.muted = true; // camera preview must stay muted for autoplay policies
-          v.play().catch(() => {});
-        });
-        const canvas = document.querySelector("a-scene canvas, canvas.a-canvas");
-        if (canvas) {
-          canvas.style.background = "transparent";
-          canvas.style.zIndex = "1";
+      function makeCanvasTransparent() {
+        const r = sceneEl.renderer;
+        if (r) {
+          r.setClearColor(0x000000, 0);
+          if (typeof r.setClearAlpha === "function") r.setClearAlpha(0);
         }
-        // Transparent clear color for Three.js renderer
-        try {
-          const renderer = sceneEl.renderer;
-          if (renderer) {
-            renderer.setClearColor(0x000000, 0);
-            renderer.setClearAlpha(0);
-          }
-        } catch (e) { /* ignore */ }
-        window.dispatchEvent(new Event("resize"));
       }
 
-      sceneEl.addEventListener("loaded", () => {
-        ensureCameraVisible();
-        setTimeout(ensureCameraVisible, 200);
-      });
+      sceneEl.addEventListener("loaded", makeCanvasTransparent);
+      sceneEl.addEventListener("renderstart", makeCanvasTransparent);
 
       startBtn.addEventListener("click", async () => {
         startEl.classList.add("hidden");
         hintEl.classList.add("show");
+        makeCanvasTransparent();
 
         try {
           audioEl.currentTime = 0;
@@ -203,17 +172,18 @@
           audioEl.pause();
           audioReady = true;
         } catch (e) {
-          console.warn("audio unlock failed", e);
+          console.warn("audio unlock", e);
         }
 
-        ensureCameraVisible();
-        setTimeout(ensureCameraVisible, 300);
-        setTimeout(ensureCameraVisible, 1000);
+        // MindAR may still be warming up — nudge layout like official _resize
+        setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+        setTimeout(makeCanvasTransparent, 200);
+        setTimeout(makeCanvasTransparent, 800);
       });
 
       anchor.addEventListener("targetFound", async () => {
         hintEl.textContent = "Утка найдена";
-        ensureCameraVisible();
+        makeCanvasTransparent();
         if (audioReady) {
           try { await audioEl.play(); } catch (e) { console.warn(e); }
         }
