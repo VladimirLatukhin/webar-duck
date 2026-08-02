@@ -3,31 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Quack AR — rotating duck</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <!-- mindar-image-aframe.prod.js registers the A-Frame components -->
     <style>
-      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #111; }
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      /* Fullscreen MindAR / A-Frame — do NOT use display:none on the scene */
+      a-scene {
+        display: block;
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .a-canvas {
+        display: block !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      /* Camera feed under the WebGL canvas */
+      video {
+        display: block !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        z-index: -2 !important;
+      }
       #start {
-        position: fixed; inset: 0; z-index: 20;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 1rem; padding: 2rem; text-align: center;
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 2rem;
+        text-align: center;
         background: linear-gradient(160deg, #1a3a5c, #264653 50%, #2a9d8f);
-        color: #fff8f0; font-family: Georgia, "Times New Roman", serif;
+        color: #fff8f0;
+        font-family: Georgia, "Times New Roman", serif;
       }
       #start h1 { margin: 0; font-size: 1.8rem; font-weight: normal; }
       #start p { margin: 0; max-width: 22rem; opacity: 0.9; line-height: 1.4; }
       #start button {
-        margin-top: 0.5rem; border: 0; border-radius: 999px;
-        padding: 0.9rem 1.6rem; font-size: 1.1rem; cursor: pointer;
-        background: #ffb703; color: #264653; font-weight: 700;
+        margin-top: 0.5rem;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.9rem 1.6rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        background: #ffb703;
+        color: #264653;
+        font-weight: 700;
       }
       #hint {
-        position: fixed; left: 0; right: 0; bottom: 1rem; z-index: 10;
-        text-align: center; color: #fff; font-family: system-ui, sans-serif;
-        font-size: 0.9rem; text-shadow: 0 1px 4px #000; pointer-events: none;
-        opacity: 0; transition: opacity 0.3s;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 1rem;
+        z-index: 10;
+        text-align: center;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 0.9rem;
+        text-shadow: 0 1px 4px #000;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
       }
       #hint.show { opacity: 1; }
       .hidden { display: none !important; }
@@ -41,30 +94,34 @@
     </div>
     <div id="hint">Ищем открытку…</div>
 
+    <!-- No embedded / no display:none — those break camera + canvas sizing on mobile -->
     <a-scene
       id="scene"
-      mindar-image="imageTargetSrc: ./assets/targets.mind; filterMinCF: 0.0001; filterBeta: 0.001"
+      mindar-image="imageTargetSrc: ./assets/targets.mind; filterMinCF: 0.0001; filterBeta: 0.001; uiLoading: no; uiScanning: no; uiError: yes"
       color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights: true"
+      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
-      embedded
-      style="display:none"
+      loading-screen="enabled: false"
     >
       <a-assets>
         <a-asset-item id="duckModel" src="./assets/duck.glb"></a-asset-item>
-        <audio id="track" src="./assets/duck-quack.mp3" preload="auto" loop></audio>
+        <audio id="track" src="./assets/duck-quack.mp3" preload="auto" loop playsinline></audio>
       </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <!-- PBR duck is black without lights -->
+      <a-light type="ambient" color="#ffffff" intensity="1.4"></a-light>
+      <a-light type="directional" color="#ffffff" intensity="1.0" position="1 2 1"></a-light>
+      <a-light type="directional" color="#ffe6c0" intensity="0.5" position="-1 1 -0.5"></a-light>
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        <!-- Classic Khronos duck; spin forever -->
+      <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false"></a-camera>
+
+      <a-entity id="anchor" mindar-image-target="targetIndex: 0">
         <a-gltf-model
           id="duck"
           src="#duckModel"
-          position="0 0.05 0"
-          scale="0.35 0.35 0.35"
+          position="0 0 0.15"
+          scale="0.45 0.45 0.45"
           rotation="0 0 0"
           animation="property: rotation; to: 0 360 0; loop: true; dur: 6000; easing: linear"
         ></a-gltf-model>
@@ -77,12 +134,12 @@
       const sceneEl = document.getElementById("scene");
       const hintEl = document.getElementById("hint");
       const audioEl = document.getElementById("track");
+      const anchor = document.getElementById("anchor");
 
       let audioReady = false;
 
       startBtn.addEventListener("click", async () => {
         startEl.classList.add("hidden");
-        sceneEl.style.display = "block";
         hintEl.classList.add("show");
 
         try {
@@ -94,25 +151,25 @@
           console.warn("audio unlock failed", e);
         }
 
-        if (sceneEl.hasLoaded) {
-          sceneEl.play();
-        } else {
-          sceneEl.addEventListener("loaded", () => sceneEl.play());
-        }
+        // Force canvas/video layout after splash (fixes black screen on many phones)
+        window.dispatchEvent(new Event("resize"));
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"));
+          const canvas = document.querySelector("canvas.a-canvas, .a-canvas canvas, canvas");
+          if (canvas) {
+            canvas.style.width = "100%";
+            canvas.style.height = "100%";
+          }
+        }, 250);
       });
 
-      const target = document.querySelector("[mindar-image-target]");
-      target.addEventListener("targetFound", async () => {
+      anchor.addEventListener("targetFound", async () => {
         hintEl.textContent = "Утка найдена";
         if (audioReady) {
-          try {
-            await audioEl.play();
-          } catch (e) {
-            console.warn("play on targetFound failed", e);
-          }
+          try { await audioEl.play(); } catch (e) { console.warn(e); }
         }
       });
-      target.addEventListener("targetLost", () => {
+      anchor.addEventListener("targetLost", () => {
         hintEl.textContent = "Ищем открытку…";
         audioEl.pause();
       });
