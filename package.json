@@ -1,0 +1,16 @@
+{
+  "name": "webar-duck",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postcard": "python scripts/make-postcard.py",
+    "compile": "node scripts/compile-targets.mjs",
+    "qr": "node scripts/make-qr.mjs",
+    "build-print": "npm run qr && npm run postcard"
+  },
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "mind-ar": "^1.2.5",
+    "qrcode": "^1.5.4"
+  }
+}
