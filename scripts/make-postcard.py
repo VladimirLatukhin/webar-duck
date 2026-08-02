@@ -1,5 +1,8 @@
-"""High-contrast B&W postcard — symmetric, clean layout for mono printers + MindAR."""
+"""B&W postcard for MindAR: asymmetric unique art, 4 different corners, QR same side.
+No repetitive grid / checkerboard. Duck-only center scene.
+"""
 from pathlib import Path
+import math
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -14,99 +17,94 @@ CX = W // 2
 img = Image.new("RGB", (W, H), WHITE)
 draw = ImageDraw.Draw(img)
 
-# --- Outer checkerboard frame (2 cells deep) ---
-cell = 40
-frame = cell * 2  # 80
-for y in range(0, H, cell):
-    for x in range(0, W, cell):
-        on_edge = x < frame or y < frame or x >= W - frame or y >= H - frame
-        if on_edge and ((x // cell) + (y // cell)) % 2 == 0:
-            draw.rectangle([x, y, x + cell - 1, y + cell - 1], fill=BLACK)
-
-pad = frame + 24  # 104 — inner content margin
-draw.rectangle([pad, pad, W - pad - 1, H - pad - 1], outline=BLACK, width=6)
+# Simple outer frame (not checkerboard)
+margin = 48
+draw.rectangle([margin, margin, W - margin - 1, H - margin - 1], outline=BLACK, width=8)
+draw.rectangle([margin + 16, margin + 16, W - margin - 17, H - margin - 17], outline=BLACK, width=3)
 
 try:
-    font_lg = ImageFont.truetype("arialbd.ttf", 70)
+    font_lg = ImageFont.truetype("arialbd.ttf", 68)
     font_md = ImageFont.truetype("arial.ttf", 30)
     font_sm = ImageFont.truetype("arial.ttf", 24)
 except OSError:
     try:
-        font_lg = ImageFont.truetype("arial.ttf", 70)
+        font_lg = ImageFont.truetype("arial.ttf", 68)
         font_md = ImageFont.truetype("arial.ttf", 30)
         font_sm = ImageFont.truetype("arial.ttf", 24)
     except OSError:
         font_lg = font_md = font_sm = ImageFont.load_default()
 
-# --- Title ---
-draw.text((CX, 175), "QUACK AR", fill=BLACK, font=font_lg, anchor="mm")
-draw.text((CX, 240), "Point camera at this card", fill=BLACK, font=font_md, anchor="mm")
+# Title
+draw.text((CX, 130), "QUACK AR", fill=BLACK, font=font_lg, anchor="mm")
+draw.text((CX, 190), "Point camera at this card", fill=BLACK, font=font_md, anchor="mm")
 
-# --- Four identical corner bullseyes (symmetric) ---
-def corner_mark(cx, cy):
-    for r in (44, 28, 12):
-        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=BLACK, width=4)
-    draw.ellipse([cx - 5, cy - 5, cx + 5, cy + 5], fill=BLACK)
+# --- Four DIFFERENT corner markers ---
+def mark_tl(x, y):
+    for s in (70, 48, 28):
+        draw.arc([x - s, y - s, x + s, y + s], 180, 270, fill=BLACK, width=6)
+    draw.line([(x - 70, y), (x - 20, y)], fill=BLACK, width=6)
+    draw.line([(x, y - 70), (x, y - 20)], fill=BLACK, width=6)
 
-c = pad + 78
-corner_mark(c, c)
-corner_mark(W - c, c)
-corner_mark(c, H - c)
-corner_mark(W - c, H - c)
 
-# --- Centered 7x5 feature grid ---
-cols, rows = 7, 5
-spacing_x, spacing_y = 96, 72
-grid_w = (cols - 1) * spacing_x
-grid_h = (rows - 1) * spacing_y
-grid_left = (W - grid_w) // 2
-grid_top = 310
+def mark_tr(x, y):
+    r_out, r_in = 55, 24
+    pts = []
+    for i in range(10):
+        ang = -math.pi / 2 + i * math.pi / 5
+        r = r_out if i % 2 == 0 else r_in
+        pts.append((x + r * math.cos(ang), y + r * math.sin(ang)))
+    draw.polygon(pts, outline=BLACK, fill=WHITE)
+    draw.line(pts + [pts[0]], fill=BLACK, width=4)
 
-for row in range(rows):
-    for col in range(cols):
-        x = grid_left + col * spacing_x
-        y = grid_top + row * spacing_y
-        if (row + col) % 2 == 0:
-            s = 15
-            draw.rectangle([x - s, y - s, x + s, y + s], outline=BLACK, width=3)
-            draw.line([(x - 9, y), (x + 9, y)], fill=BLACK, width=3)
-            draw.line([(x, y - 9), (x, y + 9)], fill=BLACK, width=3)
-        else:
-            draw.ellipse([x - 13, y - 13, x + 13, y + 13], outline=BLACK, width=3)
-            draw.ellipse([x - 4, y - 4, x + 4, y + 4], fill=BLACK)
 
-# Divider — same inset from both sides
-rule_y = grid_top + grid_h + 42
-draw.line([(pad + 60, rule_y), (W - pad - 60, rule_y)], fill=BLACK, width=3)
+def mark_bl(x, y):
+    draw.polygon([(x - 55, y + 50), (x + 55, y + 50), (x, y - 55)], outline=BLACK, fill=WHITE)
+    draw.line([(x - 55, y + 50), (x + 55, y + 50), (x, y - 55), (x - 55, y + 50)], fill=BLACK, width=5)
+    draw.rectangle([x - 50, y + 58, x + 50, y + 72], fill=BLACK)
 
-# --- Duck: shift so full silhouette (body+beak) is centered on CX ---
-# Local duck coords designed around origin; then offset so bbox center == CX
-# body ~(-120,-35)-(80,95), head~(35,-90)-(155,20), beak tip ~235
-# visual bbox approx x: -120 .. 235  → width 355, center at (-120+235)/2 = 57.5
-# so place origin at CX - 58
-ox = CX - 58
-oy = 780  # raised so clear air above QR caption
 
-draw.ellipse([ox - 120, oy - 35, ox + 80, oy + 95], fill=WHITE, outline=BLACK, width=6)
-draw.ellipse([ox + 35, oy - 90, ox + 155, oy + 20], fill=WHITE, outline=BLACK, width=6)
+def mark_br(x, y):
+    for r in (58, 40, 24):
+        draw.arc([x - r, y - r, x + r, y + r], 40, 320, fill=BLACK, width=5)
+    draw.rectangle([x - 14, y - 14, x + 14, y + 14], outline=BLACK, width=4)
+    draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill=BLACK)
+
+
+# Tuned further inward so arcs/triangle clear the double frame
+mark_tl(165, 165)
+mark_tr(W - 130, 130)
+mark_bl(175, H - 175)
+mark_br(W - 130, H - 145)
+
+# --- Large centered duck only ---
+ox, oy = CX - 30, 680
+s = 1.85
+
+def sx(v):
+    return ox + v * s
+
+def sy(v):
+    return oy + v * s
+
+draw.ellipse([sx(-120), sy(-35), sx(80), sy(95)], fill=WHITE, outline=BLACK, width=8)
+draw.ellipse([sx(35), sy(-90), sx(155), sy(20)], fill=WHITE, outline=BLACK, width=8)
 draw.polygon(
-    [(ox + 155, oy - 40), (ox + 230, oy - 18), (ox + 155, oy)],
+    [(sx(155), sy(-40)), (sx(235), sy(-18)), (sx(155), sy(0))],
     fill=BLACK,
 )
-draw.ellipse([ox + 90, oy - 55, ox + 110, oy - 35], fill=BLACK)
-draw.arc([ox - 85, oy - 5, ox + 35, oy + 80], 200, 340, fill=BLACK, width=5)
+draw.ellipse([sx(95), sy(-55), sx(115), sy(-35)], fill=BLACK)
+draw.arc([sx(-85), sy(-5), sx(40), sy(85)], 200, 340, fill=BLACK, width=7)
 
-# Duck bottom ~875; keep generous whitespace before caption
-qr_size = 260
-caption_y = 1020
-qr_top = 1060
+# --- QR block ---
+qr_size = 240
+caption_y = 1180
+qr_top = 1220
 qr_left = CX - qr_size // 2
 
 draw.text((CX, caption_y), "Scan QR to open AR", fill=BLACK, font=font_sm, anchor="mm")
 draw.rectangle(
     [qr_left - 10, qr_top - 10, qr_left + qr_size + 10, qr_top + qr_size + 10],
-    outline=BLACK,
-    width=4,
+    outline=BLACK, width=4,
 )
 
 if QR_PATH.exists():
