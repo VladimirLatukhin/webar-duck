@@ -173,10 +173,10 @@
         <a-entity id="anchor" mindar-image-target="targetIndex: 0"></a-entity>
 
         <!-- Smoothed visual root (follows #anchor with lerp) -->
-        <a-entity id="duckRoot" smooth-follow="target: #anchor; factor: 0.045">
+        <a-entity id="duckRoot" smooth-follow="target: #anchor; factor: 0.18">
           <a-entity
             id="duckSpin"
-            position="0 0 0.2"
+            position="0 0 0.08"
             animation="property: rotation; to: 0 0 360; loop: true; dur: 7000; easing: linear"
           >
             <a-gltf-model
